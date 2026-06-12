@@ -43,12 +43,12 @@ if check_password():
 
     # ใส่ลิงก์ตรง (Direct Download Link) จาก OneDrive ของคุณที่แปลงแล้ว
     ONEDRIVE_LINKS = [
-        "ใส่ลิงก์ตรงของไฟล์_c2_load22_2026_q1_max.csv_ที่นี่",
-        "ใส่ลิงก์ตรงของไฟล์_c2_load22_2026_q1_min.csv_ที่นี่",
-        "ใส่ลิงก์ตรงของไฟล์_c2_load22_2026_q2_max.csv_ที่นี่",
-        "ใส่ลิงก์ตรงของไฟล์_c2_load22_2026_q2_min.csv_ที่นี่",
-        "ใส่ลิงก์ตรงของไฟล์_c2_load115_2026_q12_max.csv_ที่นี่",
-        "ใส่ลิงก์ตรงของไฟล์_c2_load115_2026_q12_min.csv_ที่นี่"
+        "https://1drv.ms/x/c/a34ffb324226b8a4/IQQXNTUKAuuRT4S8IVfbW6lqAVFh0ObbHkT_igJq5SjdO74",
+        "https://1drv.ms/x/c/a34ffb324226b8a4/IQR1DLpsinOxR406pGlrNiGNAdEoagHHRPKztRT3gRRKBpY",
+        "https://1drv.ms/x/c/a34ffb324226b8a4/IQTjwaQDdIX0QbK6si-4IC-DAR54e4J8cQKxIk_-X3P1Wco",
+        "https://1drv.ms/x/c/a34ffb324226b8a4/IQRcrIMUOz-aQbj_RQx6VtdMAQTaYv3YcIXfQJayPSP9MEk",
+        "https://1drv.ms/x/c/a34ffb324226b8a4/IQTRatQc_lvcSbE1jFhlrfSlATVsHmPuMY7Xk1yqez8Q92c",
+        "https://1drv.ms/x/c/a34ffb324226b8a4/IQTYBEsHXj0CQrlKmM9fCVwrAdYtfyCHRH5yvbr5LYzqabE"
     ]
 
     # ฟังก์ชันดาวน์โหลดและรวมไฟล์ (ติดแคชไว้ 1 ชั่วโมง เพื่อไม่ให้เว็บโหลดช้าเวลาคนกดเล่น)
