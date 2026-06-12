@@ -30,24 +30,25 @@ def load_and_combine_data(links):
     df_list = []
     for url in links:
         try:
-            # ใช้ dtypes={key: pl.String} บังคับอ่านทุกคอลัมน์เป็นข้อความเพื่อป้องกัน Error เรื่อง parse type
-            # และใช้ on_errors="skip" เพื่อข้ามบรรทัดที่รูปแบบไฟล์พัง
+            # ใช้ on_errors="skip" และ infer_schema_length=0 เพื่อข้ามปัญหาบรรทัดเสีย [cite: 36]
             single_df = pl.read_csv(
                 url, 
                 has_header=False, 
-                infer_schema_length=0, # ปิดการเดา schema เพื่อลดการเกิด Error
-                null_values=["c\":null};"],
+                infer_schema_length=0, 
                 ignore_errors=True
             )
             if not single_df.is_empty():
                 df_list.append(single_df)
-        except Exception:
+            else:
+                st.warning(f"ไฟล์ว่างเปล่าหรืออ่านไม่ได้: {url}")
+        except Exception as e:
+            st.error(f"Error สำหรับลิงก์ {url}: {e}")
             continue
     
     if not df_list:
-        st.error("ไม่สามารถโหลดข้อมูลจากไฟล์ได้ หรือข้อมูลว่างเปล่า")
-        st.stop()
+        return None
     
+    # รวมไฟล์ [cite: 28]
     combined_df = pl.concat(df_list, how="diagonal")
     
     # เปลี่ยนชื่อคอลัมน์
@@ -56,10 +57,9 @@ def load_and_combine_data(links):
         "column_4": "Description", "column_5": "Asset", "column_6": "MW", "column_7": "Duration"
     }
     available_renames = {k: v for k, v in rename_dict.items() if k in combined_df.columns}
-    if available_renames:
-        combined_df = combined_df.rename(available_renames)
-        
-    # แปลงข้อมูลหลังจากโหลดสำเร็จแล้ว (ใช้ cast เพื่อความปลอดภัย)
+    combined_df = combined_df.rename(available_renames)
+    
+    # แปลงชนิดข้อมูล [cite: 15, 29]
     if "MW" in combined_df.columns:
         combined_df = combined_df.with_columns(pl.col("MW").cast(pl.Float64, strict=False))
     if "StartTime" in combined_df.columns:
@@ -80,23 +80,24 @@ if check_password():
         "https://1drv.ms/x/c/a34ffb324226b8a4/IQTYBEsHXj0CQrlKmM9fCVwrAdYtfyCHRH5yvbr5LYzqabE?download=1"
     ]
 
-    with st.spinner("กำลังโหลดและประมวลผลข้อมูล..."):
+    with st.spinner("กำลังโหลดข้อมูล..."):
         df = load_and_combine_data(ONEDRIVE_LINKS)
 
-    filter_col = "Tag" if "Tag" in df.columns else df.columns[0]
-    unique_values = df[filter_col].drop_nulls().unique().to_list()
-    selected_value = st.selectbox(f"เลือกกรองข้อมูลตาม [{filter_col}]:", unique_values)
-    filtered_df = df.filter(pl.col(filter_col) == selected_value)
+    if df is None:
+        st.error("ไม่สามารถดึงข้อมูลได้ โปรดตรวจสอบลิงก์ [cite: 38, 40]")
+    else:
+        filter_col = "Tag" if "Tag" in df.columns else df.columns[0]
+        unique_values = df[filter_col].drop_nulls().unique().to_list()
+        selected_value = st.selectbox(f"เลือกกรองข้อมูลตาม [{filter_col}]:", unique_values)
+        filtered_df = df.filter(pl.col(filter_col) == selected_value)
 
-    tab1, tab2 = st.tabs(["📊 กราฟวิเคราะห์", "📋 ตารางข้อมูล"])
-    
-    with tab1:
-        st.metric("จำนวนรายการ", f"{len(filtered_df):,}")
-        if "MW" in filtered_df.columns:
-            st.line_chart(data=filtered_df.to_pandas(), x="StartTime", y="MW")
-            
-    with tab2:
-        st.dataframe(filtered_df.to_pandas(), use_container_width=True)
+        tab1, tab2 = st.tabs(["📊 กราฟวิเคราะห์", "📋 ตารางข้อมูล"])
+        with tab1:
+            st.metric("จำนวนรายการ", f"{len(filtered_df):,}")
+            if "MW" in filtered_df.columns:
+                st.line_chart(data=filtered_df.to_pandas(), x="StartTime", y="MW")
+        with tab2:
+            st.dataframe(filtered_df.to_pandas(), use_container_width=True)
 
     if st.sidebar.button("🔄 ดึงข้อมูลใหม่ (Clear Cache)"):
         st.cache_data.clear()
