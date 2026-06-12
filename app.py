@@ -2,7 +2,7 @@ import streamlit as st
 import polars as pl
 import pandas as pd
 
-# ตั้งค่าหน้าเว็บให้เป็นแบบกว้าง (Wide Mode) เพื่อให้ Dashboard ดูสวยงาม
+# ตั้งค่าหน้าเว็บให้เป็นแบบกว้าง (Wide Mode) เพื่อให้หน้าจอแสดงผลได้สวยงามและชัดเจน
 st.set_page_config(page_title="Data Load Dashboard", layout="wide")
 
 # =========================================================================
@@ -23,7 +23,7 @@ def check_password():
     with col2:
         user_password = st.text_input("กรุณาใส่รหัสผ่านเพื่อเข้าใช้งาน Dashboard:", type="password")
         
-        # 💡 คุณสามารถเปลี่ยนรหัสผ่านที่ต้องการได้ที่นี่ (เปลี่ยนจาก '123456' เป็นรหัสอื่น)
+        # รหัสผ่านสำหรับเข้าใช้งานระบบ
         if st.button("เข้าสู่ระบบ (Login)", use_container_width=True):
             if user_password == "123456": 
                 st.session_state.password_correct = True
@@ -38,61 +38,76 @@ def check_password():
 if check_password():
 
     # หัวข้อหลักของหน้า Dashboard
-    st.title("📊 Dashboard ระบบวิเคราะห์ข้อมูลโหลด (Multi-File)")
+    st.title("📊 Dashboard ระบบวิเคราะห์ข้อมูลโหลด (C2 Profile Load Trend)")
     st.markdown("---")
 
-    # ใส่ลิงก์ตรง (Direct Download Link) จาก OneDrive ของคุณที่แปลงแล้ว
+    # ลิงก์ตรงจาก OneDrive ทั้ง 6 ไฟล์ที่เติม ?download=1 เรียบร้อยแล้ว
     ONEDRIVE_LINKS = [
-        "https://1drv.ms/x/c/a34ffb324226b8a4/IQQXNTUKAuuRT4S8IVfbW6lqAVFh0ObbHkT_igJq5SjdO74",
-        "https://1drv.ms/x/c/a34ffb324226b8a4/IQR1DLpsinOxR406pGlrNiGNAdEoagHHRPKztRT3gRRKBpY",
-        "https://1drv.ms/x/c/a34ffb324226b8a4/IQTjwaQDdIX0QbK6si-4IC-DAR54e4J8cQKxIk_-X3P1Wco",
-        "https://1drv.ms/x/c/a34ffb324226b8a4/IQRcrIMUOz-aQbj_RQx6VtdMAQTaYv3YcIXfQJayPSP9MEk",
-        "https://1drv.ms/x/c/a34ffb324226b8a4/IQTRatQc_lvcSbE1jFhlrfSlATVsHmPuMY7Xk1yqez8Q92c",
-        "https://1drv.ms/x/c/a34ffb324226b8a4/IQTYBEsHXj0CQrlKmM9fCVwrAdYtfyCHRH5yvbr5LYzqabE"
+        "https://1drv.ms/x/c/a34ffb324226b8a4/IQQXNTUKAuuRT4S8IVfbW6lqAVFh0ObbHkT_igJq5SjdO74?download=1",
+        "https://1drv.ms/x/c/a34ffb324226b8a4/IQR1DLpsinOxR406pGlrNiGNAdEoagHHRPKztRT3gRRKBpY?download=1",
+        "https://1drv.ms/x/c/a34ffb324226b8a4/IQTjwaQDdIX0QbK6si-4IC-DAR54e4J8cQKxIk_-X3P1Wco?download=1",
+        "https://1drv.ms/x/c/a34ffb324226b8a4/IQRcrIMUOz-aQbj_RQx6VtdMAQTaYv3YcIXfQJayPSP9MEk?download=1",
+        "https://1drv.ms/x/c/a34ffb324226b8a4/IQTRatQc_lvcSbE1jFhlrfSlATVsHmPuMY7Xk1yqez8Q92c?download=1",
+        "https://1drv.ms/x/c/a34ffb324226b8a4/IQTYBEsHXj0CQrlKmM9fCVwrAdYtfyCHRH5yvbr5LYzqabE?download=1"
     ]
 
-    # ฟังก์ชันดาวน์โหลดและรวมไฟล์ (ติดแคชไว้ 1 ชั่วโมง เพื่อไม่ให้เว็บโหลดช้าเวลาคนกดเล่น)
+    # ฟังก์ชันดาวน์โหลดและรวมไฟล์ (เวอร์ชันแก้ไขเพื่อไฟล์ที่ไม่มีหัวตาราง + กำหนดชื่อคอลัมน์ใหม่)
     @st.cache_data(ttl=3600)
     def load_and_combine_data(links):
         df_list = []
         for url in links:
-            # ดึงข้อมูลจากเน็ตทีละไฟล์ด้วย Polars (ความเร็วสูง)
-            single_df = pl.read_csv(url)
+            # has_header=False บังคับให้ Polars สร้างหัวตารางจำลอง (column_1, column_2, ...) 
+            # ป้องกันโครงสร้างไฟล์แต่ละช่วงตบตีกันจนพัง
+            single_df = pl.read_csv(url, has_header=False, truncate_ragged_lines=True, ignore_errors=True)
             df_list.append(single_df)
         
-        # รวมร่างทุกไฟล์เข้าด้วยกันเป็นก้อนเดียวในแนวตั้ง
-        combined_df = pl.concat(df_list)
+        # รวมร่างทุกไฟล์เข้าด้วยกันในแนวตั้ง (how="diagonal" ช่วยกันเหนียวกรณีจำนวนคอลัมน์ไฟล์ไหนเยื้องเกิน)
+        combined_df = pl.concat(df_list, how="diagonal")
+        
+        # 🎯 เปลี่ยนชื่อคอลัมน์ตามที่คุณระบุมาทั้ง 7 คอลัมน์
+        rename_dict = {
+            "column_1": "StartTime",
+            "column_2": "EndTime",
+            "column_3": "Tag",
+            "column_4": "Description",
+            "column_5": "Asset",
+            "column_6": "MW",
+            "column_7": "Duration"
+        }
+        
+        # ตรวจสอบคอลัมน์ที่มีอยู่จริงก่อนเปลี่ยนชื่อเพื่อป้องกัน Error หลังบ้าน
+        available_renames = {k: v for k, v in rename_dict.items() if k in combined_df.columns}
+        if available_renames:
+            combined_df = combined_df.rename(available_renames)
+            
         return combined_df
 
     # แสดงสถานะการโหลดข้อมูลในครั้งแรก
-    with st.spinner("🔄 กำลังดาวน์โหลดและคำนวณข้อมูลขนาดใหญ่จาก OneDrive... (ใช้เวลาประมาณ 15-30 วินาทีในครั้งแรก)"):
+    with st.spinner("🔄 กำลังดาวน์โหลดและประมวลผลข้อมูลโหลดพลังงานขนาดใหญ่จาก OneDrive... (ใช้เวลาสักครู่ในครั้งแรก)"):
         try:
             df = load_and_combine_data(ONEDRIVE_LINKS)
-            st.success(f"✅ โหลดและรวมข้อมูลสำเร็จ! รวมทั้งสิ้น {len(df):,} แถว")
+            st.success(f"✅ โหลดและรวมข้อมูลสำเร็จ! รวมทั้งสิ้น {len(df):?} แถว")
         except Exception as e:
-            st.error(f"❌ เกิดข้อผิดพลาดในการโหลดข้อมูล: {e}")
-            st.info("💡 คำแนะนำ: ตรวจสอบให้แน่ใจว่าได้แปลงลิงก์ OneDrive เป็น Direct Link เรียบร้อยแล้ว")
+            st.error(f"❌ เกิดข้อผิดพลาดในการประมวลผลข้อมูล: {e}")
+            st.info("💡 คำแนะนำ: ตรวจสอบความถูกต้องของไฟล์บน OneDrive อีกครั้ง")
             st.stop()
 
     st.markdown("### 🔍 ตัวเลือกตัวกรองข้อมูล (Filters)")
 
     # =========================================================================
-    # 3. ส่วนของการทำฟิลเตอร์ (ปรับแต่งตามชื่อคอลัมน์จริงในไฟล์ของคุณ)
-    # * ด้านล่างนี้คือตัวอย่าง สมมติว่าไฟล์ของคุณมีคอลัมน์ชื่อ 'Station' หรือ 'Type' *
+    # 3. ส่วนของการทำฟิลเตอร์ (กรองข้อมูลด้วยคอลัมน์ Tag)
     # =========================================================================
+    # ใช้คอลัมน์ "Tag" ในการกรองหลัก หากหาไม่เจอจะสลับไปใช้คอลัมน์แรกสุดแทนโดยอัตโนมัติ
+    filter_col = "Tag" if "Tag" in df.columns else df.columns[0]
     
-    # เพื่อให้โค้ดทำงานได้แม้ชื่อคอลัมน์ไม่ตรง ในที่นี้จะดึงชื่อคอลัมน์แรกมาเป็นตัวอย่างฟิลเตอร์
-    all_columns = df.columns
-    filter_col = all_columns[0] # ดึงคอลัมน์แรกสุดในไฟล์ CSV มาทำฟิลเตอร์
-    
-    # ดึงค่าที่ไม่ซ้ำกันในคอลัมน์นั้นมาทำ Dropdown
+    # ดึงค่าที่ไม่ซ้ำกันในคอลัมน์ Tag ออกมาทำตัวเลือก Dropdown บนหน้าเว็บ
     unique_values = df[filter_col].unique().to_list()
     
     col_select, col_empty = st.columns([1, 2])
     with col_select:
-        selected_value = st.selectbox(f"กรองข้อมูลตาม [{filter_col}]:", unique_values)
+        selected_value = st.selectbox(f"เลือกกรองข้อมูลตาม [{filter_col}]:", unique_values)
 
-    # กรองข้อมูลตามที่ผู้ใช้เลือก
+    # ทำการกรองข้อมูลตาม Tag สถานี/อุปกรณ์ที่กดเลือก
     filtered_df = df.filter(pl.col(filter_col) == selected_value)
 
     st.markdown("---")
@@ -100,36 +115,38 @@ if check_password():
     # =========================================================================
     # 4. ส่วนแสดงสถิติและกราฟ (KPI & Charts)
     # =========================================================================
-    st.markdown("### 📈 ข้อมูลสรุปสถิติ")
+    st.markdown("### 📈 ข้อมูลสรุปสถิติและแนวโน้มโหลด")
     
     # แสดงตัวเลขสรุป (KPI Card)
     kpi1, kpi2 = st.columns(2)
     with kpi1:
-        st.metric(label="📊 จำนวนรายการที่พบหลังกรอกข้อมูล", value=f"{len(filtered_df):,} แถว")
+        st.metric(label="📊 จำนวนรายการที่พบหลังกรองข้อมูล", value=f"{len(filtered_df):,} แถว")
     with kpi2:
-        st.metric(label="🗂️ สัดส่วนเมื่อเทียบกับข้อมูลทั้งหมด", value=f"{(len(filtered_df)/len(df))*100:.2f} %")
+        st.metric(label="🗂️ สัดส่วนเมื่อเทียบกับข้อมูลทั้งหมดทั้งหมด", value=f"{(len(filtered_df)/len(df))*100:.2f} %")
 
-    # ส่วนของกราฟและการแสดงผลข้อมูล
+    # แยกหน้าจอเป็นสองฝั่ง ฝั่งซ้ายกราฟ ฝั่งขวาตารางข้อมูลดิบ
     chart_col, table_col = st.columns([1, 1])
     
     with chart_col:
-        st.markdown("#### 📊 กราฟสรุปผลเบื้องต้น")
-        # ตัวอย่างการวาดกราฟเส้น: ดึงข้อมูล 1,000 แถวแรกที่กรองแล้วมาทำกราฟ
-        # (หมายเหตุ: สตรีมลิตโชว์กราฟต้องแปลงเป็น pandas ชั่วคราว)
-        chart_data = filtered_df.head(1000).to_pandas()
+        st.markdown("#### 📊 กราฟแสดงแนวโน้มค่า MW (พรีวิว 1,000 แถวแรก)")
         
-        # สมมติว่าต้องการดูกราฟเส้นของคอลัมน์ที่ 2 ในไฟล์ CSV
-        if len(all_columns) >  1:
-            st.line_chart(data=chart_data, y=all_columns[1])
+        # ตรวจสอบว่าคอลัมน์ MW มีอยู่จริงเพื่อพล็อตแกน Y
+        if "MW" in filtered_df.columns:
+            chart_data = filtered_df.head(1000).to_pandas()
+            
+            # ใช้คอลัมน์ เวลา (StartTime) เป็นแกน X วาดคู่กับค่าโหลด (MW) บนแกน Y
+            if "StartTime" in chart_data.columns:
+                st.line_chart(data=chart_data, x="StartTime", y="MW")
+            else:
+                st.line_chart(data=chart_data, y="MW")
         else:
-            st.info("ไฟล์ข้อมูลมีคอลัมน์น้อยเกินไปไม่สามารถวาดกราฟเปรียบเทียบได้")
+            st.info("ไม่พบชื่อคอลัมน์ 'MW' ในระบบ จึงไม่สามารถแสดงผลกราฟแนวโน้มได้")
 
     with table_col:
         st.markdown("#### 🔎 พรีวิวตารางข้อมูลดิบ (100 บรรทัดแรก)")
-        # แสดงตารางข้อมูลแบบInteractive เลื่อนดูได้ ขยายได้
         st.dataframe(filtered_df.head(100).to_pandas(), use_container_width=True)
 
-    # ปุ่มสำหรับกดล้างแคชเพื่อดึงข้อมูลใหม่ทันทีจาก OneDrive
+    # ปุ่มสำหรับกดล้างแคชที่แถบเมนูด้านข้างเพื่อบังคับดึงข้อมูลใหม่ทันทีจาก OneDrive
     st.sidebar.markdown("---")
     if st.sidebar.button("🔄 ดึงข้อมูลใหม่จาก OneDrive ทันที (Clear Cache)"):
         st.cache_data.clear()
