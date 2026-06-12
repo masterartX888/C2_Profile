@@ -30,7 +30,7 @@ def load_and_combine_data(links):
     df_list = []
     for url in links:
         try:
-            # แก้ไข Error โดยระบุ null_values และเพิ่มการอ่าน Schema ให้แม่นยำขึ้น [cite: 19, 20, 22]
+            # เพิ่ม null_values เพื่อจัดการกับข้อความขยะ และใช้ ignore_errors=True
             single_df = pl.read_csv(
                 url, 
                 has_header=False, 
@@ -39,9 +39,16 @@ def load_and_combine_data(links):
                 truncate_ragged_lines=True, 
                 ignore_errors=True
             )
-            df_list.append(single_df)
+            # ตรวจสอบว่าไฟล์ที่โหลดมามีข้อมูลก่อนนำไปรวม [cite: 28]
+            if not single_df.is_empty():
+                df_list.append(single_df)
         except Exception:
             continue
+    
+    # ป้องกัน ValueError กรณีโหลดข้อมูลไม่ได้เลย [cite: 28]
+    if not df_list:
+        st.error("ไม่สามารถโหลดข้อมูลจากไฟล์ได้ หรือข้อมูลว่างเปล่า")
+        st.stop()
     
     combined_df = pl.concat(df_list, how="diagonal")
     
@@ -54,7 +61,7 @@ def load_and_combine_data(links):
     if available_renames:
         combined_df = combined_df.rename(available_renames)
         
-    # แปลงเวลาเป็น Datetime เพื่อให้กราฟพล็อตได้ถูกต้อง [cite: 15]
+    # แปลงเวลาเป็น Datetime [cite: 15]
     if "StartTime" in combined_df.columns:
         combined_df = combined_df.with_columns(pl.col("StartTime").str.to_datetime(strict=False))
         
@@ -73,19 +80,19 @@ if check_password():
         "https://1drv.ms/x/c/a34ffb324226b8a4/IQTYBEsHXj0CQrlKmM9fCVwrAdYtfyCHRH5yvbr5LYzqabE?download=1"
     ]
 
-    with st.spinner("กำลังโหลดข้อมูล..."):
+    with st.spinner("กำลังโหลดและประมวลผลข้อมูล..."):
         df = load_and_combine_data(ONEDRIVE_LINKS)
 
     filter_col = "Tag" if "Tag" in df.columns else df.columns[0]
     selected_value = st.selectbox(f"เลือกกรองข้อมูลตาม [{filter_col}]:", df[filter_col].unique().to_list())
     filtered_df = df.filter(pl.col(filter_col) == selected_value)
 
-    # ใช้ Tabs เพื่อความเป็นระเบียบ [cite: 16]
     tab1, tab2 = st.tabs(["📊 กราฟวิเคราะห์", "📋 ตารางข้อมูล"])
     
     with tab1:
         st.metric("จำนวนรายการ", f"{len(filtered_df):,}")
         if "MW" in filtered_df.columns:
+            # หาก MW ยังไม่ออกกราฟ ให้เพิ่ม schema_overrides={"MW": pl.Float64} ใน pl.read_csv [cite: 22, 29]
             st.line_chart(data=filtered_df.to_pandas(), x="StartTime", y="MW")
             
     with tab2:
